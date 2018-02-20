@@ -1,4 +1,4 @@
 <resources>
-    <string name="app_name">WeChatRedPocket</string>
+    <string name="app_name">微信抢红包</string>
     <string name="app_description">自动抢红包</string>
 </resources>
