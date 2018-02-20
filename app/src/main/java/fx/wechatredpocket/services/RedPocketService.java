@@ -2,8 +2,10 @@ package fx.wechatredpocket.services;
 
 import android.accessibilityservice.AccessibilityService;
 import android.accessibilityservice.GestureDescription;
+import android.content.ComponentName;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.graphics.Path;
 import android.graphics.Rect;
 import android.preference.PreferenceManager;
@@ -49,8 +51,28 @@ public class RedPocketService extends AccessibilityService implements SharedPref
 
     @Override
     public void onAccessibilityEvent(AccessibilityEvent accessibilityEvent) {
+
+        setCurrentActivityName(accessibilityEvent);
 //        if (sharedPreferences.getBoolean("pref_watch_chat", false))
             watchChat(accessibilityEvent);
+    }
+
+    private void setCurrentActivityName(AccessibilityEvent event) {
+        if (event.getEventType() != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+            return;
+        }
+
+        try {
+            ComponentName componentName = new ComponentName(
+                    event.getPackageName().toString(),
+                    event.getClassName().toString()
+            );
+
+            getPackageManager().getActivityInfo(componentName, 0);
+            currentActivityName = componentName.flattenToShortString();
+        } catch (PackageManager.NameNotFoundException e) {
+            currentActivityName = WECHAT_LUCKMONEY_GENERAL_ACTIVITY;
+        }
     }
 
     private void checkNodeInfo(int eventType) {
@@ -71,8 +93,8 @@ public class RedPocketService extends AccessibilityService implements SharedPref
                         || currentActivityName.contains(WECHAT_LUCKMONEY_GENERAL_ACTIVITY))) {
 //            String excludeWords = sharedPreferences.getString("pref_watch_exclude_words", "");
 //            if (this.signature.generateSignature(node1, excludeWords)) {
-//                mLuckyMoneyReceived = true;
-//                mReceiveNode = node1;
+                mLuckyMoneyReceived = true;
+                mReceiveNode = node1;
 //                Log.d("sig", this.signature.toString());
 //            }
             return;
@@ -80,8 +102,10 @@ public class RedPocketService extends AccessibilityService implements SharedPref
 
         /* 戳开红包，红包还没抢完，遍历节点匹配“拆红包” */
         AccessibilityNodeInfo node2 = findOpenButton(this.rootNodeInfo);
-        if (node2 != null && "android.widget.Button".equals(node2.getClassName()) &&
-                currentActivityName.contains(WECHAT_LUCKMONEY_RECEIVE_ACTIVITY)) {
+        if (node2 != null &&
+                "android.widget.Button".equals(node2.getClassName())
+                && currentActivityName.contains(WECHAT_LUCKMONEY_GENERAL_ACTIVITY)
+                ) {
             mUnpackNode = node2;
             mUnpackCount += 1;
             return;
@@ -92,8 +116,10 @@ public class RedPocketService extends AccessibilityService implements SharedPref
                 WECHAT_BETTER_LUCK_CH, WECHAT_DETAILS_CH,
                 WECHAT_BETTER_LUCK_EN, WECHAT_DETAILS_EN, WECHAT_EXPIRES_CH);
         if (mMutex && eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && hasNodes
-                && (currentActivityName.contains(WECHAT_LUCKMONEY_DETAIL_ACTIVITY)
-                || currentActivityName.contains(WECHAT_LUCKMONEY_RECEIVE_ACTIVITY))) {
+                && currentActivityName.contains(WECHAT_LUCKMONEY_GENERAL_ACTIVITY)
+//                (currentActivityName.contains(WECHAT_LUCKMONEY_DETAIL_ACTIVITY)
+//                || currentActivityName.contains(WECHAT_LUCKMONEY_RECEIVE_ACTIVITY))
+        ) {
             mMutex = false;
             mLuckyMoneyPicked = false;
             mUnpackCount = 0;
@@ -123,57 +149,66 @@ public class RedPocketService extends AccessibilityService implements SharedPref
         /* 如果戳开但还未领取 */
         if (mUnpackCount == 1 && (mUnpackNode != null)) {
 //            int delayFlag = sharedPreferences.getInt("pref_open_delay", 0) * 1000;
-            int delayFlag = 1000;
-            new android.os.Handler().postDelayed(
-                    new Runnable() {
-                        public void run() {
-                            try {
-                                openPacket();
-                            } catch (Exception e) {
-                                mMutex = false;
-                                mLuckyMoneyPicked = false;
-                                mUnpackCount = 0;
-                            }
-                        }
-                    },
-                    delayFlag);
+            try {
+                openPacket();
+            } catch (Exception e) {
+                mMutex = false;
+                mLuckyMoneyPicked = false;
+                mUnpackCount = 0;
+            }
+//            int delayFlag = 1000;
+//            new android.os.Handler().postDelayed(
+//                    new Runnable() {
+//                        public void run() {
+//                            try {
+//                                openPacket();
+//                            } catch (Exception e) {
+//                                mMutex = false;
+//                                mLuckyMoneyPicked = false;
+//                                mUnpackCount = 0;
+//                            }
+//                        }
+//                    },
+//                    delayFlag);
         }
     }
 
     private void openPacket() {
-        DisplayMetrics metrics = getResources().getDisplayMetrics();
-        float dpi = metrics.density;
-        if (android.os.Build.VERSION.SDK_INT <= 23) {
-            mUnpackNode.performAction(AccessibilityNodeInfo.ACTION_CLICK);
-        } else {
-            if (android.os.Build.VERSION.SDK_INT > 23) {
 
-                Path path = new Path();
-                if (640 == dpi) {
-                    path.moveTo(720, 1575);
-                } else {
-                    path.moveTo(540, 1060);
-                }
-                GestureDescription.Builder builder = new GestureDescription.Builder();
-                GestureDescription gestureDescription = builder.addStroke(new GestureDescription.StrokeDescription(path, 450, 50)).build();
-                dispatchGesture(gestureDescription, new GestureResultCallback() {
-                    @Override
-                    public void onCompleted(GestureDescription gestureDescription) {
-                        Log.d("test", "onCompleted");
-                        mMutex = false;
-                        super.onCompleted(gestureDescription);
-                    }
-
-                    @Override
-                    public void onCancelled(GestureDescription gestureDescription) {
-                        Log.d("test", "onCancelled");
-                        mMutex = false;
-                        super.onCancelled(gestureDescription);
-                    }
-                }, null);
-
-            }
-        }
+        mUnpackNode.performAction(AccessibilityNodeInfo.ACTION_CLICK);
+//        DisplayMetrics metrics = getResources().getDisplayMetrics();
+//        float dpi = metrics.density;
+//        if (android.os.Build.VERSION.SDK_INT <= 23) {
+//            mUnpackNode.performAction(AccessibilityNodeInfo.ACTION_CLICK);
+//        } else {
+//            if (android.os.Build.VERSION.SDK_INT > 23) {
+//
+//                Path path = new Path();
+//                if (640 == dpi) {
+//                    path.moveTo(720, 1575);
+//                } else {
+//                    path.moveTo(540, 1060);
+//                }
+//                GestureDescription.Builder builder = new GestureDescription.Builder();
+//                GestureDescription gestureDescription = builder.addStroke(new GestureDescription.StrokeDescription(path, 450, 50)).build();
+//                dispatchGesture(gestureDescription, new GestureResultCallback() {
+//                    @Override
+//                    public void onCompleted(GestureDescription gestureDescription) {
+//                        Log.d("test", "onCompleted");
+//                        mMutex = false;
+//                        super.onCompleted(gestureDescription);
+//                    }
+//
+//                    @Override
+//                    public void onCancelled(GestureDescription gestureDescription) {
+//                        Log.d("test", "onCancelled");
+//                        mMutex = false;
+//                        super.onCancelled(gestureDescription);
+//                    }
+//                }, null);
+//
+//            }
+//        }
     }
 
 
