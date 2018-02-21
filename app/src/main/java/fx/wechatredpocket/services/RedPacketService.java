@@ -33,7 +33,7 @@ public class RedPacketService extends AccessibilityService implements SharedPref
     private static final String WECHAT_VIEW_SELF_CH = "查看红包";
     private static final String WECHAT_VIEW_OTHERS_CH = "领取红包";
     private static final String WECHAT_NOTIFICATION_TIP = "[微信红包]";
-//    private static final String WECHAT_LUCKMONEY_RECEIVE_ACTIVITY = "LuckyMoneyReceiveUI";
+    private static final String WECHAT_LUCKMONEY_RECEIVE_ACTIVITY = "LuckyMoneyReceiveUI";
 //    private static final String WECHAT_LUCKMONEY_DETAIL_ACTIVITY = "LuckyMoneyDetailUI";
     private static final String WECHAT_LUCKMONEY_GENERAL_ACTIVITY = "LauncherUI";
 //    private static final String WECHAT_LUCKMONEY_CHATTING_ACTIVITY = "ChattingUI";
@@ -88,39 +88,6 @@ public class RedPacketService extends AccessibilityService implements SharedPref
 //            signature.commentString = null;
 //        }
 
-        /* 聊天会话窗口，遍历节点匹配“领取红包”和"查看红包" */
-//        AccessibilityNodeInfo node1 = (sharedPreferences.getBoolean("pref_watch_self", false)) ?
-//                this.getTheLastNode(WECHAT_VIEW_OTHERS_CH, WECHAT_VIEW_SELF_CH) :
-//                this.getTheLastNode(WECHAT_VIEW_OTHERS_CH);
-        AccessibilityNodeInfo node1 = this.getTheLastNode(WECHAT_VIEW_OTHERS_CH);
-        if (node1 != null &&
-                currentActivityName.contains(WECHAT_LUCKMONEY_GENERAL_ACTIVITY)
-//        (currentActivityName.contains(WECHAT_LUCKMONEY_CHATTING_ACTIVITY)
-//                        || currentActivityName.contains(WECHAT_LUCKMONEY_GENERAL_ACTIVITY))
-        ) {
-//            String excludeWords = sharedPreferences.getString("pref_watch_exclude_words", "");
-//            if (this.signature.generateSignature(node1, excludeWords)) {
-                mLuckyMoneyReceived = true;
-                mReceiveNode = node1;
-                Log.d(TAG, "node view id: " + node1.getViewIdResourceName());
-                Log.d(TAG,"node window id: %" + node1.getWindowId());
-//                Log.d("sig", this.signature.toString());
-//            }
-            return;
-        }
-
-        /* 戳开红包，红包还没抢完，遍历节点匹配“拆红包” */
-        AccessibilityNodeInfo node2 = findOpenButton(this.rootNodeInfo);
-        if (node2 != null &&
-                "android.widget.Button".equals(node2.getClassName())
-                && currentActivityName.contains(WECHAT_LUCKMONEY_GENERAL_ACTIVITY)
-                ) {
-            mUnpackNode = node2;
-            mUnpackCount += 1;
-            Log.d(TAG, "Found the red packet going to be opened.");
-            return;
-        }
-
         /* 戳开红包，红包已被抢完，遍历节点匹配“红包详情”和“手慢了” */
         boolean hasNodes = this.hasOneOfThoseNodes(
                 WECHAT_BETTER_LUCK_CH, WECHAT_DETAILS_CH,
@@ -130,17 +97,55 @@ public class RedPacketService extends AccessibilityService implements SharedPref
 //                && eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
 //                &&
                 hasNodes
-                && currentActivityName.contains(WECHAT_LUCKMONEY_GENERAL_ACTIVITY)
+                        && currentActivityName.contains(WECHAT_LUCKMONEY_GENERAL_ACTIVITY)
 //                (currentActivityName.contains(WECHAT_LUCKMONEY_DETAIL_ACTIVITY)
 //                || currentActivityName.contains(WECHAT_LUCKMONEY_RECEIVE_ACTIVITY))
-        ) {
+                ) {
 //            mMutex = false;
             mLuckyMoneyPicked = false;
             mUnpackCount = 0;
-            Log.d(TAG, "Go back.");
+            System.out.println("Go back.");
             performGlobalAction(GLOBAL_ACTION_BACK);
 //            signature.commentString = generateCommentString();
         }
+
+        /* 戳开红包，红包还没抢完，遍历节点匹配“拆红包” */
+        AccessibilityNodeInfo node2 = findOpenButton(this.rootNodeInfo);
+        System.out.println("node2: " + node2 + ", " + currentActivityName);
+        if (node2 != null) {
+            System.out.println("node class: " + node2.getClassName());
+        }
+        if (node2 != null &&
+                "android.widget.Button".equals(node2.getClassName())
+                && (currentActivityName.contains(WECHAT_LUCKMONEY_RECEIVE_ACTIVITY)
+                        || currentActivityName.contains(WECHAT_LUCKMONEY_GENERAL_ACTIVITY))
+                ) {
+            mUnpackNode = node2;
+            mUnpackCount += 1;
+            System.out.println("Found the red packet going to be opened.");
+            return;
+        }
+
+        /* 聊天会话窗口，遍历节点匹配“领取红包”和"查看红包" */
+//        AccessibilityNodeInfo node1 = (sharedPreferences.getBoolean("pref_watch_self", false)) ?
+//                this.getTheLastNode(WECHAT_VIEW_OTHERS_CH, WECHAT_VIEW_SELF_CH) :
+//                this.getTheLastNode(WECHAT_VIEW_OTHERS_CH);
+        AccessibilityNodeInfo node1 = this.getTheLastNode(WECHAT_VIEW_OTHERS_CH, WECHAT_VIEW_SELF_CH);
+        if (node1 != null &&
+                currentActivityName.contains(WECHAT_LUCKMONEY_GENERAL_ACTIVITY)
+//        (currentActivityName.contains(WECHAT_LUCKMONEY_CHATTING_ACTIVITY)
+//                        || currentActivityName.contains(WECHAT_LUCKMONEY_GENERAL_ACTIVITY))
+        ) {
+//            String excludeWords = sharedPreferences.getString("pref_watch_exclude_words", "");
+//            if (this.signature.generateSignature(node1, excludeWords)) {
+                mLuckyMoneyReceived = true;
+                mReceiveNode = node1;
+            System.out.println("The red packet is received");
+//                Log.d("sig", this.signature.toString());
+//            }
+            return;
+        }
+
     }
 
     private void watchChat(AccessibilityEvent event) {
@@ -158,18 +163,18 @@ public class RedPacketService extends AccessibilityService implements SharedPref
         if (mLuckyMoneyReceived && !mLuckyMoneyPicked && (mReceiveNode != null)) {
 //            mMutex = true;
 
-            Log.d(TAG,"Received node");
+            System.out.println("Received red packet and pick it.");
             mReceiveNode.getParent().performAction(AccessibilityNodeInfo.ACTION_CLICK);
             mLuckyMoneyReceived = false;
             mLuckyMoneyPicked = true;
         }
 
-        Log.d(TAG,"watch chat");
         /* 如果戳开但还未领取 */
         if (
 //                mUnpackCount == 1 &&
                 mUnpackNode != null) {
 //            int delayFlag = sharedPreferences.getInt("pref_open_delay", 0) * 1000;
+            System.out.println("open red packet.");
             try {
                 openPacket();
             } catch (Exception e) {
