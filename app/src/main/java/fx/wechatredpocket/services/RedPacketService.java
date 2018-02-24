@@ -15,6 +15,7 @@ import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.Toast;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -60,6 +61,50 @@ public class RedPacketService extends AccessibilityService implements SharedPref
         setCurrentActivityName(accessibilityEvent);
 //        if (sharedPreferences.getBoolean("pref_watch_chat", false))
         watchChat(accessibilityEvent);
+        watchList(accessibilityEvent);
+    }
+
+    private boolean watchList(AccessibilityEvent event) {
+//        if (mListMutex) return false;
+//        mListMutex = true;
+        AccessibilityNodeInfo eventSource = event.getSource();
+        // Not a message
+        System.out.println("The event type: " + event.getEventType());
+//        System.out.println("The event source: " + eventSource);
+        if (
+                event.getEventType() != AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED ||
+                eventSource == null)
+            return false;
+
+        List<AccessibilityNodeInfo> nodes = eventSource.findAccessibilityNodeInfosByText(WECHAT_NOTIFICATION_TIP);
+//        List<AccessibilityNodeInfo> node3s = this.rootNodeInfo.findAccessibilityNodeInfosByText(WECHAT_NOTIFICATION_TIP);
+        List<AccessibilityNodeInfo> node2s = eventSource.findAccessibilityNodeInfosByViewId("com.tencent.mm:id/apt");
+        AccessibilityNodeInfo nodeInfo = null;
+
+        for (AccessibilityNodeInfo node : node2s) {
+            if (node.getText().toString().contains(WECHAT_NOTIFICATION_TIP)) {
+                nodeInfo = node;
+            }
+        }
+        //增加条件判断currentActivityName.contains(WECHAT_LUCKMONEY_GENERAL_ACTIVITY)
+        //避免当订阅号中出现标题为“[微信红包]拜年红包”（其实并非红包）的信息时误判
+        if (null != nodeInfo && currentActivityName.contains(WECHAT_LUCKMONEY_GENERAL_ACTIVITY)) {
+//            AccessibilityNodeInfo nodeToClick = nodeInfos.get(0);
+//            if (nodeToClick == null) return false;
+//            CharSequence contentDescription = nodeToClick.getContentDescription();
+            System.out.println("Found the red packet in the chat list and click it.");
+            nodeInfo.getParent().performAction(AccessibilityNodeInfo.ACTION_CLICK);
+
+//            if (contentDescription != null
+////                    && "android.view.View" == nodeToClick.getClassName()
+////                    && !signature.getContentDescription().equals(contentDescription)
+//                    ) {
+//                nodeToClick.performAction(AccessibilityNodeInfo.ACTION_CLICK);
+////                signature.setContentDescription(contentDescription.toString());
+//                return true;
+//            }
+        }
+        return false;
     }
 
     private void setCurrentActivityName(AccessibilityEvent event) {
@@ -92,6 +137,7 @@ public class RedPacketService extends AccessibilityService implements SharedPref
         boolean hasNodes = this.hasOneOfThoseNodes(
                 WECHAT_BETTER_LUCK_CH, WECHAT_DETAILS_CH,
                 WECHAT_BETTER_LUCK_EN, WECHAT_DETAILS_EN, WECHAT_EXPIRES_CH);
+        System.out.println("has nodes: " + hasNodes);
         if (
 //                mMutex
 //                && eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
@@ -111,7 +157,7 @@ public class RedPacketService extends AccessibilityService implements SharedPref
 
         /* 戳开红包，红包还没抢完，遍历节点匹配“拆红包” */
         AccessibilityNodeInfo node2 = findOpenButton(this.rootNodeInfo);
-        System.out.println("node2: " + node2 + ", " + currentActivityName);
+        System.out.println("activity name: " + currentActivityName);
         if (node2 != null) {
             System.out.println("node class: " + node2.getClassName());
         }
