@@ -34,9 +34,9 @@ public class RedPacketService extends AccessibilityService implements SharedPref
     private static final String WECHAT_VIEW_OTHERS_CH = "领取红包";
     private static final String WECHAT_NOTIFICATION_TIP = "[微信红包]";
     private static final String WECHAT_LUCKMONEY_RECEIVE_ACTIVITY = "LuckyMoneyReceiveUI";
-//    private static final String WECHAT_LUCKMONEY_DETAIL_ACTIVITY = "LuckyMoneyDetailUI";
+    private static final String WECHAT_LUCKMONEY_DETAIL_ACTIVITY = "LuckyMoneyDetailUI";
     private static final String WECHAT_LUCKMONEY_GENERAL_ACTIVITY = "LauncherUI";
-//    private static final String WECHAT_LUCKMONEY_CHATTING_ACTIVITY = "ChattingUI";
+    private static final String WECHAT_LUCKMONEY_CHATTING_ACTIVITY = "ChattingUI";
     private String currentActivityName = WECHAT_LUCKMONEY_GENERAL_ACTIVITY;
 
     private AccessibilityNodeInfo rootNodeInfo, // the root node
@@ -96,10 +96,10 @@ public class RedPacketService extends AccessibilityService implements SharedPref
 //                mMutex
 //                && eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
 //                &&
-                hasNodes
-                        && currentActivityName.contains(WECHAT_LUCKMONEY_GENERAL_ACTIVITY)
-//                (currentActivityName.contains(WECHAT_LUCKMONEY_DETAIL_ACTIVITY)
-//                || currentActivityName.contains(WECHAT_LUCKMONEY_RECEIVE_ACTIVITY))
+                hasNodes &&
+//                        currentActivityName.contains(WECHAT_LUCKMONEY_GENERAL_ACTIVITY)
+                (currentActivityName.contains(WECHAT_LUCKMONEY_DETAIL_ACTIVITY)
+                || currentActivityName.contains(WECHAT_LUCKMONEY_RECEIVE_ACTIVITY))
                 ) {
 //            mMutex = false;
             mLuckyMoneyPicked = false;
@@ -132,9 +132,9 @@ public class RedPacketService extends AccessibilityService implements SharedPref
 //                this.getTheLastNode(WECHAT_VIEW_OTHERS_CH);
         AccessibilityNodeInfo node1 = this.getTheLastNode(WECHAT_VIEW_OTHERS_CH, WECHAT_VIEW_SELF_CH);
         if (node1 != null &&
-                currentActivityName.contains(WECHAT_LUCKMONEY_GENERAL_ACTIVITY)
-//        (currentActivityName.contains(WECHAT_LUCKMONEY_CHATTING_ACTIVITY)
-//                        || currentActivityName.contains(WECHAT_LUCKMONEY_GENERAL_ACTIVITY))
+//                currentActivityName.contains(WECHAT_LUCKMONEY_GENERAL_ACTIVITY)
+        (currentActivityName.contains(WECHAT_LUCKMONEY_CHATTING_ACTIVITY)
+                        || currentActivityName.contains(WECHAT_LUCKMONEY_GENERAL_ACTIVITY))
         ) {
 //            String excludeWords = sharedPreferences.getString("pref_watch_exclude_words", "");
 //            if (this.signature.generateSignature(node1, excludeWords)) {
