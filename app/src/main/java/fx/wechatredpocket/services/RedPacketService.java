@@ -2,12 +2,15 @@ package fx.wechatredpocket.services;
 
 import android.accessibilityservice.AccessibilityService;
 import android.accessibilityservice.GestureDescription;
+import android.app.Notification;
+import android.app.PendingIntent;
 import android.content.ComponentName;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Path;
 import android.graphics.Rect;
+import android.os.Parcelable;
 import android.preference.PreferenceManager;
 import android.util.DisplayMetrics;
 import android.util.Log;
@@ -38,14 +41,24 @@ public class RedPacketService extends AccessibilityService implements SharedPref
     private static final String WECHAT_LUCKMONEY_DETAIL_ACTIVITY = "LuckyMoneyDetailUI";
     private static final String WECHAT_LUCKMONEY_GENERAL_ACTIVITY = "LauncherUI";
     private static final String WECHAT_LUCKMONEY_CHATTING_ACTIVITY = "ChattingUI";
+
     private String currentActivityName = WECHAT_LUCKMONEY_GENERAL_ACTIVITY;
+
+    /* this is used to remeber the current group name, help to remeber
+     * the red packet which is send by myself */
+    private String currentGroupName = "";
+    private int[] redPacketsSentSelf = null;
+
 
     private AccessibilityNodeInfo rootNodeInfo, // the root node
             mReceiveNode, // the received red pocket node
             mUnpackNode; // the unpacked red pocket node
+
     private boolean mLuckyMoneyPicked, // if the red pocket has been picked
             mLuckyMoneyReceived; // if the red pocket has been received
+
     private int mUnpackCount = 0; // the number of unpicked red pockets
+
     private boolean mMutex = false,
             mListMutex = false,
             mChatMutex = false;
@@ -62,6 +75,37 @@ public class RedPacketService extends AccessibilityService implements SharedPref
 //        if (sharedPreferences.getBoolean("pref_watch_chat", false))
         watchChat(accessibilityEvent);
         watchList(accessibilityEvent);
+//        watchNotifications(accessibilityEvent);
+    }
+
+    private boolean watchNotifications(AccessibilityEvent event) {
+        // Not a notification
+
+        System.out.println("event type: " + event.getEventType());
+        if (event.getSource() != null && null != event.getSource().getText()) {
+            System.out.println(event.getSource().getText().toString());
+        }
+
+        if (event.getEventType() != AccessibilityEvent.TYPE_NOTIFICATION_STATE_CHANGED)
+            return false;
+
+        // Not a hongbao
+        String tip = event.getText().toString();
+//        if (!tip.contains(WECHAT_NOTIFICATION_TIP)) return true;
+
+        Parcelable parcelable = event.getParcelableData();
+        if (parcelable instanceof Notification) {
+            Notification notification = (Notification) parcelable;
+            try {
+                /* 清除signature,避免进入会话后误判 */
+//                signature.cleanSignature();
+
+                 notification.contentIntent.send();
+            } catch (PendingIntent.CanceledException e) {
+                e.printStackTrace();
+            }
+        }
+        return true;
     }
 
     private boolean watchList(AccessibilityEvent event) {
@@ -69,14 +113,16 @@ public class RedPacketService extends AccessibilityService implements SharedPref
 //        mListMutex = true;
         AccessibilityNodeInfo eventSource = event.getSource();
         // Not a message
-        System.out.println("The event type: " + event.getEventType());
+//        System.out.println("The event type: " + event.getEventType());
 //        System.out.println("The event source: " + eventSource);
         if (
                 event.getEventType() != AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED ||
                 eventSource == null)
             return false;
 
-        List<AccessibilityNodeInfo> nodes = eventSource.findAccessibilityNodeInfosByText(WECHAT_NOTIFICATION_TIP);
+//        List<AccessibilityNodeInfo> nodes = eventSource.findAccessibilityNodeInfosByText(WECHAT_NOTIFICATION_TIP);
+//        List<AccessibilityNodeInfo> nodes = eventSource.findAccessibilityNodeInfosByText("bbbbb");
+
 //        List<AccessibilityNodeInfo> node3s = this.rootNodeInfo.findAccessibilityNodeInfosByText(WECHAT_NOTIFICATION_TIP);
         List<AccessibilityNodeInfo> node2s = eventSource.findAccessibilityNodeInfosByViewId("com.tencent.mm:id/apt");
         AccessibilityNodeInfo nodeInfo = null;
@@ -133,6 +179,13 @@ public class RedPacketService extends AccessibilityService implements SharedPref
 //            signature.commentString = null;
 //        }
 
+        List<AccessibilityNodeInfo> groupNameNodes = this.rootNodeInfo.findAccessibilityNodeInfosByViewId("com.tencent.mm:id/hj");
+        if (groupNameNodes == null || groupNameNodes.isEmpty()) {
+            return;
+        }
+        this.currentGroupName = groupNameNodes.get(0).getText().toString();
+        System.out.println("current group name: " + this.currentGroupName);
+
         /* 戳开红包，红包已被抢完，遍历节点匹配“红包详情”和“手慢了” */
         boolean hasNodes = this.hasOneOfThoseNodes(
                 WECHAT_BETTER_LUCK_CH, WECHAT_DETAILS_CH,
@@ -172,10 +225,13 @@ public class RedPacketService extends AccessibilityService implements SharedPref
             return;
         }
 
-        /* 聊天会话窗口，遍历节点匹配“领取红包”和"查看红包" */
+        /* 聊天会话窗口，遍历节点匹配“领取红包”和"查看红包"
+         * 但是自己发的红包在自己领取以后, 还是会显示未领取的状态, 所以通过记取当前聊天窗口的名字
+         * 和红包的rect的bottom值来记录红包 */
 //        AccessibilityNodeInfo node1 = (sharedPreferences.getBoolean("pref_watch_self", false)) ?
 //                this.getTheLastNode(WECHAT_VIEW_OTHERS_CH, WECHAT_VIEW_SELF_CH) :
 //                this.getTheLastNode(WECHAT_VIEW_OTHERS_CH);
+//        AccessibilityNodeInfo node1 = this.getTheLastNode(WECHAT_VIEW_OTHERS_CH);
         AccessibilityNodeInfo node1 = this.getTheLastNode(WECHAT_VIEW_OTHERS_CH, WECHAT_VIEW_SELF_CH);
         if (node1 != null &&
 //                currentActivityName.contains(WECHAT_LUCKMONEY_GENERAL_ACTIVITY)
@@ -305,6 +361,22 @@ public class RedPacketService extends AccessibilityService implements SharedPref
                 return button;
         }
         return null;
+    }
+
+    private int[] getSelfRedPackets() {
+        List<AccessibilityNodeInfo> nodes = this.rootNodeInfo.findAccessibilityNodeInfosByText(WECHAT_VIEW_SELF_CH);
+        int[] nodeBottoms = null;
+        int nodeSize = nodes.size();
+        if (nodes != null && !nodes.isEmpty()) {
+            nodeBottoms = new int[nodeSize];
+            for (int i = 0; i < nodeSize; i++) {
+                AccessibilityNodeInfo node = nodes.get(i);
+                Rect bounds = new Rect();
+                node.getBoundsInScreen(bounds);
+                nodeBottoms[i] = bounds.bottom;
+            }
+        }
+        return nodeBottoms;
     }
 
 
